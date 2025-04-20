@@ -80,7 +80,7 @@ if view == "Artwork Explorer":
     query_idx = st.slider("Select a Painting Index to Explore", 0, len(image_titles) - 1)
     query_art = artworks[query_idx]
 
-    st.image(query_art["image"], caption=f"🎨 Query: {query_art['title']} ({query_art['artist']})", use_column_width=True)
+    st.image(query_art["image"], caption=f"🎨 Query: {query_art['title']} ({query_art['artist']})", use_container_width=True)
 
     sim_scores = cosine_similarity([features[query_idx]], features)[0]
     ranked = np.argsort(sim_scores)[::-1][1:6]
