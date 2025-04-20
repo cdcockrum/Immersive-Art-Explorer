@@ -1,0 +1,9 @@
+streamlit
+torch
+torchvision
+open_clip_torch
+numpy
+scikit-learn
+requests
+tqdm
+Pillow
