@@ -1,6 +1,5 @@
-# Immersive Art Explorer Project (Streamlit Version)
+# Immersive Art Explorer Project (Streamlit Version + Visualizations)
 
-# === 1. Load and Parse Museum API ===
 import requests
 import json
 import os
@@ -12,22 +11,18 @@ from torchvision import transforms
 import torch
 from tqdm import tqdm
 import open_clip
+import plotly.express as px
+import pandas as pd
 
-# Streamlit UI setup
 st.set_page_config(page_title="Immersive Art Explorer", layout="wide")
 st.title("🖼️ Immersive Art Explorer")
 
-# Example: The Met Museum Open Access API
 BASE_URL = "https://collectionapi.metmuseum.org/public/collection/v1"
 
-# Step 1: Get list of object IDs with a filter (e.g., only paintings)
 @st.cache_data
 def fetch_artworks():
     search_url = f"{BASE_URL}/search"
-    params = {
-        "hasImages": True,
-        "q": "painting"
-    }
+    params = {"hasImages": True, "q": "painting"}
     search_response = requests.get(search_url, params=params)
     object_ids = search_response.json().get("objectIDs", [])[:100]
 
@@ -50,7 +45,6 @@ def fetch_artworks():
 
 artworks = fetch_artworks()
 
-# Step 2: Feature extraction using CLIP
 @st.cache_resource
 def load_model():
     model, _, preprocess = open_clip.create_model_and_transforms("ViT-B-32", pretrained="laion2b_e16")
@@ -78,19 +72,43 @@ def generate_features():
 
 features, image_titles = generate_features()
 
-# Step 3: Streamlit UI for similarity search
-query_idx = st.slider("Select a Painting Index to Explore", 0, len(image_titles) - 1)
-query_art = artworks[query_idx]
+# Sidebar: navigation
+st.sidebar.title("Navigation")
+view = st.sidebar.radio("Go to", ["Artwork Explorer", "Visualizations"])
 
-st.image(query_art["image"], caption=f"🎨 Query: {query_art['title']} ({query_art['artist']})", use_column_width=True)
+if view == "Artwork Explorer":
+    query_idx = st.slider("Select a Painting Index to Explore", 0, len(image_titles) - 1)
+    query_art = artworks[query_idx]
 
-sim_scores = cosine_similarity([features[query_idx]], features)[0]
-ranked = np.argsort(sim_scores)[::-1][1:6]
+    st.image(query_art["image"], caption=f"🎨 Query: {query_art['title']} ({query_art['artist']})", use_column_width=True)
 
-st.subheader("🔍 Similar Artworks")
-cols = st.columns(5)
+    sim_scores = cosine_similarity([features[query_idx]], features)[0]
+    ranked = np.argsort(sim_scores)[::-1][1:6]
 
-for i, idx in enumerate(ranked):
-    with cols[i]:
-        st.image(artworks[idx]["image"], caption=f"{artworks[idx]['title']}\n({sim_scores[idx]:.2f})")
+    st.subheader("🔍 Similar Artworks")
+    cols = st.columns(5)
+    for i, idx in enumerate(ranked):
+        with cols[i]:
+            st.image(artworks[idx]["image"], caption=f"{artworks[idx]['title']}\n({sim_scores[idx]:.2f})")
 
+elif view == "Visualizations":
+    st.subheader("🎨 Artwork Metadata Visualizations")
+    df = pd.DataFrame(artworks)
+
+    with st.expander("📊 Artist Frequency"):
+        top_artists = df["artist"].value_counts().head(10).reset_index()
+        top_artists.columns = ["Artist", "Count"]
+        fig1 = px.bar(top_artists, x="Artist", y="Count", title="Top 10 Artists")
+        st.plotly_chart(fig1, use_container_width=True)
+
+    with st.expander("📆 Artwork Timeline"):
+        df["parsed_date"] = pd.to_numeric(df["date"], errors="coerce")
+        timeline = df.dropna(subset=["parsed_date"])
+        fig2 = px.histogram(timeline, x="parsed_date", nbins=20, title="Artwork Distribution by Date")
+        st.plotly_chart(fig2, use_container_width=True)
+
+    with st.expander("🌍 Cultural Origins"):
+        top_cultures = df["culture"].value_counts().head(10).reset_index()
+        top_cultures.columns = ["Culture", "Count"]
+        fig3 = px.pie(top_cultures, names="Culture", values="Count", title="Top Cultural Origins")
+        st.plotly_chart(fig3, use_container_width=True)
