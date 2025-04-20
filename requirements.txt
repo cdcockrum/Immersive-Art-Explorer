@@ -7,3 +7,6 @@ scikit-learn
 requests
 tqdm
 Pillow
+plotly
+pandas
+
